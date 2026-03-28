@@ -1,0 +1,59 @@
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+import numpy as np
+
+
+from datetime import timedelta
+
+df=pd.read_csv('tornado.csv')
+df = df[~df['Rating'].str.contains('U')]
+
+
+df['Path Length (mi)'] = df['Path Length (mi)'].astype(float)
+df['Rating'] = df['Rating'].str[-1].astype(float)
+# Calculate track length multiplied by EF number for each row
+df['Fujita Miles'] = df['Path Length (mi)'] * (df['Rating'])**2
+
+df = df.loc[:, ['Start Time', 'Fujita Miles']]
+
+df=df.drop(0)
+
+df['Start Time'] = pd.to_datetime(df['Start Time'])
+df['Start Time'] = df['Start Time'] - pd.Timedelta(hours=12)
+
+
+# Group by date and sum 'Fujita Miles' for each day
+df = df.groupby(df['Start Time'].dt.date)['Fujita Miles'].sum()
+df = pd.DataFrame(df)
+print(df)
+
+date_range = pd.date_range(start='1830-01-01', end='2023-12-31')
+
+# Reindex the DataFrame with the date range
+df = df.reindex(date_range)
+
+# Fill NaN values with 0
+df['Fujita Miles'] = df['Fujita Miles'].fillna(0)
+print(df)
+
+n=0
+sumlist=[]
+sum=[]
+while n < len(df['Fujita Miles']):
+    if df['Fujita Miles'][n] != 0:
+        sum=sum+1
+    else:
+        sum=0
+    sumlist.append(sum)
+    n=n+1
+
+df['Consecutive']=sumlist
+
+dff=df[df['Consecutive']==14]
+print(dff)
+
+df = df.sort_values(by='Consecutive', ascending=False)
+print(df[:50])
+
+# Display
