@@ -1,0 +1,127 @@
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+import numpy as np
+
+
+from datetime import timedelta
+
+df=pd.read_csv('tornado.csv')
+df = df[~df['Rating'].str.contains('U')]
+
+df['Rating'] = df['Rating'].str[-1].astype(float)
+
+df = df.loc[:, ['Start Time', 'Rating', 'Start Longitude']]
+df=df[1:]
+#ef5 = df[df['Rating']==5]
+
+df['Start Time'] = pd.to_datetime(df['Start Time'])
+df['Start Time'] = df['Start Time'] - pd.Timedelta(hours=12)
+# Extract year from 'Start Time'
+df['Year'] = df['Start Time'].dt.year
+df=df[df['Year']>1949]
+sdf=df
+df = df[(df['Start Longitude'] >= -103) & (df['Start Longitude'] <= -95)]
+df = df[df['Rating'] >= 3]
+
+df['Start Time'] = pd.to_datetime(df['Start Time'])
+
+# Extract the date component from 'Start Time'
+df['Date'] = df['Start Time'].dt.date
+
+# Group by 'Date' and count the number of tornadoes each day
+df = df.groupby('Date').size().reset_index(name='Tor Count')
+
+# Print the grouped DataFrame
+df=df[df['Tor Count']>2]
+print(df[len(df['Date'])-50:])
+
+
+df['Date'] = pd.to_datetime(df['Date'])
+
+df['Year'] = df['Date'].dt.year
+
+
+# Group by year and count the number of rows per year
+df = df.groupby('Year').size().reset_index(name='Annual Outbreaks')
+
+
+
+all_years = pd.DataFrame({'Year': range(1950, 2024)})
+
+# Merge the original DataFrame with the DataFrame containing all years
+df = all_years.merge(df, on='Year', how='left')
+
+# Fill any missing values with 0
+df['Annual Outbreaks'] = df['Annual Outbreaks'].fillna(0).astype(int)
+
+# Print the merged DataFrame
+
+df['Outbreaks Plains'] = df['Annual Outbreaks'].rolling(window=5).mean()
+
+df = df.set_index('Year')
+
+
+
+
+sdf = sdf[sdf['Rating'] >= 3]
+
+sdf['Start Time'] = pd.to_datetime(sdf['Start Time'])
+
+# Extract the date component from 'Start Time'
+sdf['Date'] = sdf['Start Time'].dt.date
+
+# Group by 'Date' and count the number of tornadoes each day
+sdf = sdf.groupby('Date').size().reset_index(name='Tor Count')
+
+# Print the grouped DataFrame
+sdf=sdf[sdf['Tor Count']>2]
+print(sdf[len(sdf['Date'])-50:])
+
+
+sdf['Date'] = pd.to_datetime(sdf['Date'])
+
+sdf['Year'] = sdf['Date'].dt.year
+
+
+# Group by year and count the number of rows per year
+sdf = sdf.groupby('Year').size().reset_index(name='Annual Outbreaks')
+
+
+
+all_years = pd.DataFrame({'Year': range(1950, 2024)})
+
+# Merge the original DataFrame with the DataFrame containing all years
+sdf = all_years.merge(sdf, on='Year', how='left')
+
+# Fill any missing values with 0
+sdf['Annual Outbreaks'] = sdf['Annual Outbreaks'].fillna(0).astype(int)
+
+# Print the merged DataFrame
+
+sdf['Outbreaks All'] = sdf['Annual Outbreaks'].rolling(window=5).mean()
+
+sdf = sdf.set_index('Year')
+
+
+df['Outbreaks All']=sdf['Outbreaks All']
+
+df['Ratio']=(df['Outbreaks Plains']/df['Outbreaks All']) *100
+print(df)
+
+plt.plot(df.index, df['Ratio'], linestyle='-', color='blue', linewidth=1)
+#plt.bar(df.index, df['Annual Outbreaks'], color='white', edgecolor='red')
+
+
+# Add labels and title
+plt.xlabel('Year')
+plt.ylabel('% of 3+ EF3+ outbreaks in Plains, 5yr Rolling')
+plt.title('How many intense tornado outbreaks are in the Plains?')
+
+# Show the plot
+plt.grid(True)
+plt.tight_layout()
+
+plt.savefig('PlainsR.png')
+print(df)
+print(sdf)
