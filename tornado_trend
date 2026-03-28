@@ -1,0 +1,54 @@
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+import numpy as np
+from sklearn.linear_model import LinearRegression
+from datetime import datetime as dt
+
+from datetime import timedelta
+
+df=pd.read_csv('tornado.csv')
+
+print(df)
+exit()
+
+df=df[df['Rating']>2].reset_index(drop=True)
+df['Date'] = pd.to_datetime(df['Date'], format='%Y, %m, %d')
+df['Month'] = df['Date'].dt.month
+df['Year'] = df['Date'].dt.year
+
+print(df)
+
+winterlist=[]
+totalist=[]
+slist=[5,6]
+yearlist=[]
+
+for i in range(1900,2023):
+    print(i)
+    inter_df=df[df['Year']==i].reset_index(drop=True)
+    totalist.append(len(inter_df))
+    inter_df=inter_df[inter_df['Month'].isin(slist)].reset_index(drop=True)
+    winterlist.append(len(inter_df))
+    yearlist.append(i)
+
+df = pd.DataFrame({
+    'Year': yearlist,
+    'Winter': winterlist,
+    'Total': totalist
+})
+
+df['Ratio']=df['Winter']/df['Total']
+df['10-Year Avg'] = df['Ratio'].rolling(window=10).mean()
+
+
+print(df)
+
+plt.figure(figsize=(10, 6))
+plt.plot(df['Year'], df['10-Year Avg'], color='blue', marker='o', linestyle='-')
+plt.ylabel('Intense Tor Count')
+plt.xlabel('Year')
+plt.title('Proportion of annual intense tornadoes in Dec-Jan-Feb: 10-Year average')
+plt.grid(True)
+
+plt.savefig('intense_season_w.png')
