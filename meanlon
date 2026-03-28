@@ -1,0 +1,62 @@
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
+from mpl_toolkits.basemap import Basemap
+
+from datetime import timedelta
+
+df=pd.read_csv('tornado.csv')
+df = df[~df['Rating'].str.contains('U')]
+
+df['Rating'] = df['Rating'].str[-1].astype(float)
+
+df = df.loc[:, ['Start Time', 'Rating', 'Start Longitude', 'Start Latitude']]
+df=df[1:]
+#ef5 = df[df['Rating']==5]
+
+df['Start Time'] = pd.to_datetime(df['Start Time'])
+df['Start Time'] = df['Start Time'] - pd.Timedelta(hours=12)
+# Extract year from 'Start Time'
+df['Year'] = df['Start Time'].dt.year
+df=df[df['Year']>1909]
+#df = df[(df['Start Longitude'] >= -103) & (df['Start Longitude'] <= -95) & (df['Rating'] >= 3)]
+df = df[df['Rating'] >= 3]
+
+df['Start Time'] = pd.to_datetime(df['Start Time'])
+
+# Extract the date component from 'Start Time'
+df['Date'] = df['Start Time'].dt.date
+
+print(df)
+
+df = df.groupby('Year').agg({'Start Latitude': 'median', 'Start Longitude': 'median'})
+
+# Resetting the index to make Year a column again
+df.reset_index(inplace=True)
+
+# Displaying the grouped dataframe
+print(df)
+
+rolling_median = df.rolling(window=15, on='Year', min_periods=1).median()
+
+# Create a Basemap of the US
+plt.figure(figsize=(10, 6))
+m = Basemap(llcrnrlon=-100, llcrnrlat=33, urcrnrlon=-85, urcrnrlat=40, projection='merc', resolution='l')
+m.drawcountries()
+m.drawstates()
+m.drawcoastlines()  # Add coastlines to the map
+
+
+# Plot the medians on the Basemap
+x, y = m(rolling_median['Start Longitude'].values, rolling_median['Start Latitude'].values)
+plt.scatter(x, y, c=rolling_median['Year'], cmap='viridis')
+plt.colorbar(label='Year', shrink=0.8)
+
+
+plt.title('Median Intense Tornado (15-Year Window)')
+plt.grid(True)
+plt.savefig('tornadomap2.png', bbox_inches = 'tight', pad_inches = 0.1)  # Save the map as an image file
