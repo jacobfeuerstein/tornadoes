@@ -1,0 +1,60 @@
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+import numpy as np
+import datetime as dt
+import pandas as pd
+
+df = pd.read_csv('tornado.csv')
+print(df)
+print(df.columns)
+
+
+exit()
+
+
+df = df[~df['Rating'].str.contains('U')]
+
+df['Path Length (mi)'] = df['Path Length (mi)'].astype(float)
+df['Rating'] = df['Rating'].str[-1].astype(float)
+
+# Calculate track length multiplied by EF number for each row
+df['Sqd Fujita Miles'] = df['Path Length (mi)'] * df['Rating']**2
+
+# Keep only required columns
+df = df[['Start Time', 'Sqd Fujita Miles']]
+
+# Drop the first row
+df = df.drop(0)
+
+df['Start Time'] = pd.to_datetime(df['Start Time'])
+
+df = df[pd.to_datetime(df['Start Time']).dt.year >= 1880]
+
+
+df['Start Time'] = df['Start Time'] - pd.Timedelta(hours=12)
+
+# Group by year-month and sum 'Fujita Miles' for each month
+df = df.set_index('Start Time').resample('M').sum()
+
+# Calculate the monthly median for each month
+monthly_mean = df.groupby(df.index.month)['Sqd Fujita Miles'].mean()
+
+# Map the monthly median values to the corresponding month in the DataFrame
+df['Monthly Mean'] = df.index.month.map(monthly_mean)
+
+# Calculate the standard deviation for each month
+monthly_std = df.groupby(df.index.month)['Sqd Fujita Miles'].std()
+df['month'] = df.index.month
+
+df['STD Fujita Miles'] = df['month'].map(monthly_std)
+
+df['Standardized Anomaly']=(df['Sqd Fujita Miles'] - df['Monthly Mean']) / df['STD Fujita Miles']
+
+sorted_df = df.sort_values(by='Standardized Anomaly', ascending=False)
+print(df)
+# Printing the top 50 and bottom 50 rows
+print("Top 50:")
+print(sorted_df.head(50))
+print("\nBottom 50:")
+print(sorted_df.tail(50))
