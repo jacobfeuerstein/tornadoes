@@ -1,0 +1,63 @@
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+import numpy as np
+import datetime as dt
+import pandas as pd
+
+df = pd.read_csv('tornado.csv')
+df = df[~df['Rating'].str.contains('U')]
+df = df[~df['States'].astype(str).str.contains('nan', na=False)]
+statelist=list(df['States'].unique())
+removelist=[]
+ogdf=df
+for i in statelist:
+    if ';' in str(i):
+        removelist.append(i)
+
+for i in removelist:
+    statelist.remove(i)
+
+totlist=[]
+for state in statelist:
+    print(state)
+    df=ogdf[ogdf['States'].str.contains(state)].reset_index()
+
+    df['Path Length (mi)'] = df['Path Length (mi)'].astype(float)
+    df['Rating'] = df['Rating'].str[-1].astype(float)
+
+    # Calculate track length multiplied by EF number for each row
+    df['Sqd Fujita Miles'] = df['Path Length (mi)'] * df['Rating']**2
+
+    # Keep only required columns
+    df = df[['Start Time', 'Sqd Fujita Miles']]
+
+    df = df[~df['Start Time'].astype(str).str.contains('1095')]
+
+    df['Start Time'] = pd.to_datetime(df['Start Time'])
+
+    df = df[pd.to_datetime(df['Start Time']).dt.year >= 1880]
+
+    df['Start Time'] = df['Start Time'] - pd.Timedelta(hours=12)
+
+    # Group by year-month and sum 'Fujita Miles' for each month
+    df = df.set_index('Start Time').resample('M').sum()
+
+    standard_deviation = float(np.std(df))
+    meann=df['Sqd Fujita Miles'].mean()
+
+
+    df['Standardized Anomaly']=(df['Sqd Fujita Miles'] - meann) / standard_deviation
+
+    df = df.sort_values(by='Standardized Anomaly', ascending=False)
+    highest_st_anomaly = df['Standardized Anomaly'].max()
+    highest_st_anomaly_index = df['Standardized Anomaly'].idxmax()
+
+
+    applist=[state, highest_st_anomaly,highest_st_anomaly_index]
+    totlist.append(applist)
+
+print(totlist)
+df = pd.DataFrame(totlist, columns=['State', 'Standard Anom', 'Date'])
+df = df.sort_values(by='Standard Anom', ascending=False)
+print(df)
