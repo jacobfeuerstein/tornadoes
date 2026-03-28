@@ -1,0 +1,47 @@
+
+import geopandas as gpd
+
+# Path to the shapefile
+shapefile_path = "extractDamage/nws_dat_damage_paths.shp"
+
+# Read the shapefile using GeoPandas
+gdf = gpd.read_file(shapefile_path)
+
+# Print the GeoDataFrame
+print(gdf)
+
+import pandas as pd
+
+# Assuming `df` is your existing DataFrame
+# Create a new DataFrame with the specified columns
+df = gdf[['stormdate', 'efnum', 'length', 'stormtime']].copy()
+
+# Filter out rows where efnum is equal to -99
+df = df[df['efnum'] != -99]
+
+# Display the resulting DataFrame
+df['stormdate'] = pd.to_datetime(df['stormdate'])
+
+# Extract the hour from stormtime and convert it to integer
+df['hour'] = df['stormtime'].str[:2].astype(int)
+
+# Subtract one day from the stormdate if hour is before 12:00 (noon)
+df['stormdate'] = df.apply(lambda row: row['stormdate'] - pd.DateOffset(days=1) if row['hour'] < 12 else row['stormdate'], axis=1)
+
+# Drop the temporary 'hour' column
+df.drop(columns=['hour'], inplace=True)
+
+# Display the resulting DataFrame
+print(df)
+
+df.sort_values(by='stormdate', inplace=True)
+
+# Filter the DataFrame to include only rows with dates on 4/27 and 4/26
+df = df[(df['stormdate'].dt.month == 4) & (df['stormdate'].dt.day.isin([26, 27]))]
+
+# Display the resulting filtered DataFrame
+df['FM']=df['length']*df['efnum']**2
+tot = df['FM'].sum()
+
+print(df)
+print(tot)
