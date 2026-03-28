@@ -1,0 +1,140 @@
+
+
+
+
+import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
+
+
+from datetime import timedelta
+
+df=pd.read_csv('tornado.csv')
+
+df = df[df['Countries']=='US']
+df = df[~df['Rating'].str.contains('U')]
+
+
+df['Path Length (mi)'] = df['Path Length (mi)'].astype(float)
+df['Rating'] = df['Rating'].str[-1].astype(float)
+#df=df[df['Rating']>1]
+
+# Calculate track length multiplied by EF number for each row
+df['Squared Fujita Miles'] = df['Path Length (mi)'] * (df['Rating'])**2
+
+df = df.loc[:, ['Start Time', 'Squared Fujita Miles']]
+
+df=df.drop(0)
+
+df['Start Time'] = pd.to_datetime(df['Start Time'])
+df['Start Time'] = df['Start Time'] - pd.Timedelta(hours=12)
+
+
+# Group by date and sum 'Fujita Miles' for each day
+df = df.groupby(df['Start Time'].dt.date)['Squared Fujita Miles'].sum()
+df = pd.DataFrame(df)
+
+
+date_range = pd.date_range(start='2000-01-01', end='2023-12-31')
+
+# Reindex the DataFrame with the date range
+df = df.reindex(date_range)
+
+# Fill NaN values with 0
+df['Squared Fujita Miles'] = df['Squared Fujita Miles'].fillna(0)
+#df=df.sort_values(by='Squared Fujita Miles', ascending=False)
+
+
+outlooks = pd.read_csv('outlooks.csv')
+
+
+
+df.index = pd.to_datetime(df.index)
+
+# Ensure outlooks['date'] is datetime
+outlooks['date'] = pd.to_datetime(outlooks['date'])
+
+# Set 'date' as index for outlooks to align by date
+outlooks.set_index('date', inplace=True)
+
+# Join the threshold column (renamed to 'outlook') to df
+df = df.join(outlooks['threshold'].rename('outlook'))
+
+
+
+
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# Ensure datetime index
+df.index = pd.to_datetime(df.index)
+
+# Add year and 5-year group columns
+df['year'] = df.index.year
+df['year_group'] = df['year'].apply(lambda y: f"{(y // 5) * 5}-{(y // 5) * 5 + 4}")
+
+# Drop rows with missing outlook
+df_filtered = df.dropna(subset=['outlook'])
+
+df=df[df['outlook']==.45]
+df=df.sort_values(by='Squared Fujita Miles', ascending=False)
+print(df)
+exit()
+# Define outlook order and custom colors
+outlook_order = [0.02, 0.05, 0.1, 0.15, 0.3, 0.45, 0.6]
+custom_palette = {
+    0.02: 'green',
+    0.05: 'brown',
+    0.1: 'yellow',
+    0.15: 'red',
+    0.3: 'pink',
+    0.45: 'purple',
+    0.6: 'darkblue',
+}
+
+# Find top 100 rows by Fujita Miles
+top_100 = df_filtered.nlargest(25, 'Squared Fujita Miles').copy()
+
+# Set plot style
+plt.figure(figsize=(14, 8))
+
+# Base boxplot
+box = sns.boxplot(
+    data=df_filtered,
+    x='year_group',
+    y='Squared Fujita Miles',
+    hue='outlook',
+    hue_order=outlook_order,
+    palette=custom_palette
+)
+
+# Capture legend handles/labels before adding stripplot
+handles, labels = box.get_legend_handles_labels()
+
+# Add top 100 dots (this would normally duplicate legend items)
+sns.stripplot(
+    data=top_100,
+    x='year_group',
+    y='Squared Fujita Miles',
+    hue='outlook',
+    hue_order=outlook_order,
+    palette=custom_palette,
+    dodge=True,
+    jitter=False,
+    size=5,
+    marker='o',
+    edgecolor='black',
+    linewidth=0.5,
+    legend=False  # suppress new legend entries
+)
+
+# Now restore the clean legend from the boxplot
+plt.legend(handles=handles, labels=labels, title='Outlook', bbox_to_anchor=(1.05, 1), loc='upper left')
+
+plt.yscale('log')
+plt.title('Squared Fujita Miles by Outlook (5-Year Clusters) with Top 25 Events Highlighted')
+plt.xlabel('5-Year Period')
+plt.ylabel('Squared Fujita Miles (log scale)')
+plt.tight_layout()
+plt.savefig('outlooks2.png', bbox_inches = 'tight', pad_inches = 0.1)
